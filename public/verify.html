@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Account</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 0.5rem;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .message {
+            padding: 0.75rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Verify Your Account</h1>
+        <div id="message" class="message info" style="display: none;"></div>
+        
+        <form id="verifyForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="otp">OTP Code</label>
+                <input type="text" id="otp" placeholder="Enter 6-digit OTP" maxlength="6" required>
+            </div>
+            
+            <button type="submit" id="verifyBtn">Verify Account</button>
+            <button type="button" id="resendBtn">Resend OTP</button>
+            <button type="button" id="backBtn">Back to Login</button>
+        </form>
+    </div>
+
+    <script>
+        // Extract email from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const tempToken = urlParams.get('tempToken');
+        const emailInput = document.getElementById('email');
+        const otpInput = document.getElementById('otp');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const resendBtn = document.getElementById('resendBtn');
+        const backBtn = document.getElementById('backBtn');
+        const messageDiv = document.getElementById('message');
+
+        // Decode JWT token to get email
+        if (tempToken) {
+            try {
+                const payload = JSON.parse(atob(tempToken.split('.')[1]));
+                emailInput.value = payload.email;
+            } catch (error) {
+                showMessage('Invalid verification link', 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+        }
+
+        // Back to Login button handler
+        backBtn.addEventListener('click', () => {
+            console.log('Back to Login button clicked, redirecting to:', 'http://localhost:5174/');
+            window.location.href = 'http://localhost:5174/';
+        });
+
+        document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const otp = otpInput.value;
+            
+            if (!otp || otp.length !== 6) {
+                showMessage('Please enter a valid 6-digit OTP', 'error');
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+
+            try {
+                const response = await fetch('/auth/register/verify-account', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: emailInput.value,
+                        otp: otp
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('Account verified successfully! Redirecting to login...', 'success');
+                    setTimeout(() => {
+                        console.log('Verification successful, redirecting to:', 'http://localhost:5174/');
+                        window.location.href = 'http://localhost:5174/';
+                    }, 2000);
+                } else {
+                    showMessage(data.message || 'Verification failed', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify Account';
+            }
+        });
+
+        resendBtn.addEventListener('click', async () => {
+            resendBtn.disabled = true;
+            resendBtn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/auth/register/resendOtp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: emailInput.value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('OTP resent successfully! Please check your email.', 'success');
+                } else {
+                    showMessage(data.message || 'Failed to resend OTP', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            } finally {
+                resendBtn.disabled = false;
+                resendBtn.textContent = 'Resend OTP';
+            }
+        });
+    </script>
+</body>
+</html>
