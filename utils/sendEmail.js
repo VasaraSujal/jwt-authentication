@@ -57,9 +57,9 @@ const sendVerificationEmail = async (userEmail, otp, username) => {
 
     // Email Template
     const mailOptions = {
-      from: `Mero Kharcha <${myEmail}>`,
+      from: `Your Beautiful OTP<${myEmail}>`,
       to: userEmail,
-      subject: `${otp} is your Mero Kharcha ${
+      subject: `${otp} is Your Beautiful OTP ${
         username ? "account verification code" : "account recovery code"
       }`,
       html: `
@@ -82,11 +82,11 @@ const sendVerificationEmail = async (userEmail, otp, username) => {
       <body>
         <div class="container">
           <div class="header">
-            <img src="https://drive.google.com/uc?export=view&id=18ywIIN7sCMiwfnt1PtbUP5N9KmOzWmsn" alt="MERO KHARCHA" width="150" />
+            <img src="https://drive.google.com/uc?export=view&id=18ywIIN7sCMiwfnt1PtbUP5N9KmOzWmsn" alt="Your Beautiful OTP" width="150" />
           </div>
           <div class="content">
             <p>Dear ${username || "User"},</p>
-            <p>We received your request for a single-use code for your Mero Kharcha account.</p>
+            <p>We received your request for a single-use code for your Your Beautiful OTP account.</p>
             <p>Please use the following OTP ${
               username ? "to verify your account" : "to reset your password"
             }:</p>
@@ -96,8 +96,8 @@ const sendVerificationEmail = async (userEmail, otp, username) => {
             <p>If you didn’t request this, you can ignore this email.</p>
           </div>
           <div class="footer">
-            <p>MERO KHARCHA: An expense management system for students.</p>
-            <p>Thank you,<br/>Mero Kharcha Team</p>
+            <p>Your Beautiful OTP: An expense management system for students.</p>
+            <p>Thank you,<br/>Your Beautiful OTP Team</p>
           </div>
         </div>
       </body>

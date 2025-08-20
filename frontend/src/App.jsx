@@ -1,7 +1,7 @@
 import './App.css';
 
-import Login from './components/auth/Login';
-import Signup from './components/auth/Signup';
+import Login from './components/auth/Login.jsx';
+import Signup from './components/auth/Signup.jsx';
 import ForgetPassword from './components/auth/ForgetPassword';
 import VerifyAccount from './components/auth/VerifyAccount';
 import Dashboard from './components/Dashboard';
