@@ -1,7 +1,7 @@
 /**
  * API Service for handling all API requests
  */
-const API_BASE_URL = 'http://localhost:9999/auth';
+const API_BASE_URL = 'http://localhost:9999/auth';  // Verify this matches your backend port
 
 const ApiService = {
   // API endpoints
