@@ -29,20 +29,28 @@ function VerifyAccount() {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
-    setSuccessMessage('');
 
     try {
-      const data = await ApiService.makeRequest(
+      // Validate OTP format
+      if (!otp || !/^\d{6}$/.test(otp)) {
+        throw new Error('Please enter a valid 6-digit OTP');
+      }
+
+      console.log('Verifying OTP:', { email, otp });
+      const response = await ApiService.makeRequest(
         'POST',
         ApiService.endpoints.verifyAccount,
         { email, otp }
       );
 
-      setSuccessMessage('Account verified successfully! You can now login.');
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
+      if (response.success) {
+        setSuccessMessage('Account verified successfully! Redirecting to login...');
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      }
     } catch (error) {
+      console.error('Verification error:', error);
       setErrorMessage(error.message || 'Verification failed');
     } finally {
       setIsLoading(false);

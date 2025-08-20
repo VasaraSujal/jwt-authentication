@@ -63,18 +63,32 @@ export default function ForgetPassword() {
     setErrorMessage('');
 
     try {
+      // Validate OTP format
+      if (!otp || !/^\d{6}$/.test(otp)) {
+        throw new Error('OTP must be exactly 6 digits');
+      }
+
+      // Validate password
+      if (!newPassword || newPassword.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
       const response = await ApiService.makeRequest(
         'POST',
         ApiService.endpoints.resetPassword,
-        { email, otp, password: newPassword }
+        { 
+          email,
+          otp,
+          password: newPassword
+        }
       );
 
-      setMessage('Password reset successfully! You can now login with your new password.');
-      setStep(1);
-      setEmail('');
-      setOtp('');
-      setNewPassword('');
+      if (response.success) {
+        setMessage('Password reset successful! Redirecting to login...');
+        setTimeout(() => window.location.href = '/', 2000);
+      }
     } catch (error) {
+      console.error('Reset password error:', error);
       setErrorMessage(error.message || 'Failed to reset password');
     } finally {
       setIsLoading(false);

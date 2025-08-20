@@ -18,26 +18,35 @@ function Login() {
     setSuccessMessage('');
 
     try {
+      // Validate inputs
+      if (!email || !password) {
+        throw new Error('Please enter both email and password');
+      }
+
+      console.log('Attempting login...');
       const response = await ApiService.makeRequest(
         'POST',
         ApiService.endpoints.login,
         { email, password }
       );
 
-      // Store the token in localStorage
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      
-      // Show success message and redirect after a delay
-      setSuccessMessage('Login successful! Welcome back, ' + response.user.username);
-      
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      console.log('Login response:', response);
+
+      if (response.success) {
+        // Store auth data
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        
+        setSuccessMessage('Login successful! Redirecting...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
     } catch (error) {
-      setErrorMessage(error.message || 'Login failed');
-      console.error(error);
+      console.error('Login error:', error);
+      setErrorMessage(error.message || 'Invalid credentials');
     } finally {
       setIsLoading(false);
     }

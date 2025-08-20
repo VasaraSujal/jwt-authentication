@@ -25,43 +25,24 @@ const ApiService = {
    */
   makeRequest: async (method, endpoint, body = null, customOptions = {}) => {
     try {
-      // Set default headers
-      const headers = {
-        'Content-Type': 'application/json',
-        ...customOptions.headers,
-      };
-
-      // Add authorization header if token exists
-      const token = localStorage.getItem('token');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      // Prepare request options
-      const options = {
+      console.log(`API ${method} request to ${endpoint}:`, body);
+      
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method,
-        headers,
-        credentials: 'include', // Include cookies in the request
-        ...customOptions,
-      };
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : null,
+      });
 
-      // Add body if provided
-      if (body) {
-        options.body = JSON.stringify(body);
-      }
+      const responseData = await response.json();
+      console.log('API Response:', responseData);
 
-      // Make the request
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-
-      // Parse the response
-      const data = await response.json();
-
-      // Handle error responses
       if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        throw new Error(responseData.message || 'Request failed');
       }
 
-      return data;
+      return responseData;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
