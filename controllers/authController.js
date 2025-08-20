@@ -67,8 +67,6 @@ const register = async (req, res) => {
       return sendError(res, "User already registered, please login.", 400);
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     let tempToken = "";
     let otp = generateOTP();
 
@@ -80,17 +78,18 @@ const register = async (req, res) => {
       tempToken = generateTempToken(email);
     }
 
-    let user;
+    // Create or update user with plain password - let middleware handle hashing
+    let user = existingUser;
     if (existingUser) {
       existingUser.username = username;
-      existingUser.password = hashedPassword;
+      existingUser.password = password;
       existingUser.otp = otp;
       user = await existingUser.save();
     } else {
       user = await User.create({
         username,
         email,
-        password: hashedPassword,
+        password,
         otp,
         isVerified: false,
       });
@@ -103,6 +102,7 @@ const register = async (req, res) => {
       })
     );
   } catch (error) {
+    console.error('Registration error:', error);
     return sendError(res, error.message, 500);
   }
 };
@@ -136,29 +136,33 @@ const resendAccountVerificationOtp = async (req, res) => {
 const verifyAccount = async (req, res) => {
   try {
     const { email, otp } = req.body;
+    console.log('Verifying account:', { email, otp });
+
+    // Validate OTP format
+    if (!otp || !/^\d{6}$/.test(otp)) {
+      return sendError(res, "Invalid OTP format - must be 6 digits", 400);
+    }
 
     const user = await User.findOne({ email });
     if (!user) return sendError(res, "User not found", 404);
     if (user.isVerified) return sendError(res, "Account already verified", 400);
 
-    if (user.otp && user.otp !== otp) {
+    // Compare OTP
+    if (user.otp !== otp) {
       return sendError(res, "Invalid OTP", 400);
     }
 
+    // Clear OTP and mark as verified
+    user.otp = undefined;
     user.isVerified = true;
-    user.otp = "";
     await user.save();
 
     const token = generateToken(user);
+    return res.status(200).json(successResponse("Account verified successfully", { token, user }));
 
-    return res.status(200).json(
-      successResponse("User verified and logged in successfully", {
-        user,
-        token,
-      })
-    );
   } catch (error) {
-    return sendError(res, error.message, 400);
+    console.error('Verification error:', error);
+    return sendError(res, error.message, 500);
   }
 };
 
@@ -170,30 +174,49 @@ const verifyAccount = async (req, res) => {
  */
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body; // ✅ expect email + password
+    const { email, password } = req.body;
+    console.log('Login attempt for:', email);
 
-    // find user by email
-    const user = await User.findOne({ email });
+    // Explicitly include password in query
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      console.log('User not found:', email);
+      return sendError(res, "Invalid email or password", 401);
     }
 
-    // compare password
-    const isMatch = await bcrypt.compare(password, user.password);
+    if (!user.isVerified) {
+      console.log('User not verified:', email);
+      return sendError(res, "Please verify your account first", 403);
+    }
+
+    // Direct password comparison
+    const isMatch = await user.comparePassword(password);
+    console.log('Password comparison result:', isMatch);
+
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      console.log('Invalid password for:', email);
+      return sendError(res, "Invalid email or password", 401);
     }
 
-    // generate JWT (use your generateToken helper for consistency)
     const token = generateToken(user);
+    console.log('Login successful for:', email);
 
-    res.json({
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
       token,
-      user, // return full user object (frontend already expects user.username)
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        profilePicture: user.profilePicture,
+        darkMode: user.darkMode
+      }
     });
+
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error('Login error:', error);
+    return sendError(res, "An error occurred during login", 500);
   }
 };
 
@@ -249,6 +272,9 @@ const forgetPassword = async (req, res) => {
 
     const { tempToken, otp } = await sendOtp(email);
     user.otp = otp;
+    // Set OTP expiry to 5 minutes from now
+    user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+    user.otpValid = true;
     await user.save();
 
     return res
@@ -286,24 +312,42 @@ const resendPasswordResetOtp = async (req, res) => {
  */
 const setNewPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    const { email, otp, password } = req.body;
+    console.log('Reset password request:', { email, otpLength: otp?.length });
 
     const user = await User.findOne({ email });
-    if (!user) return sendError(res, "User not found", 404);
-    if (user.otp !== otp) return sendError(res, "Invalid OTP", 403);
+    if (!user) {
+      return sendError(res, "User not found", 404);
+    }
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.otp = "";
-    user.tokenVersion += 1;
-    await user.save();
+    // Validate OTP
+    if (!otp || user.otp !== otp) {
+      return sendError(res, "Invalid OTP", 403);
+    }
 
-    const token = generateToken(user);
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(password, 12);
+    
+    // Update user document directly to bypass pre-save middleware
+    await User.updateOne(
+      { _id: user._id },
+      { 
+        $set: { 
+          password: hashedPassword,
+          otp: undefined,
+          otpValid: false,
+          otpExpiry: null
+        },
+        $inc: { tokenVersion: 1 }
+      }
+    );
 
-    return res
-      .status(200)
-      .json(successResponse("Password changed successfully", { user, token }));
+    return res.status(200).json(
+      successResponse("Password reset successfully")
+    );
   } catch (error) {
-    return sendError(res, "Internal server error", 500);
+    console.error('Password reset error:', error);
+    return sendError(res, "Failed to reset password: " + error.message, 500);
   }
 };
 
