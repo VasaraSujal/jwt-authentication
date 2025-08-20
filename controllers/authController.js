@@ -165,29 +165,38 @@ const verifyAccount = async (req, res) => {
 /**
  * Login User (using ObjectId instead of email)
  */
+/**
+ * Login User (using email instead of ObjectId)
+ */
 const login = async (req, res) => {
   try {
-    const { id, password } = req.body; // expecting `_id` from client
+    const { email, password } = req.body; // ✅ expect email + password
 
-    const user = await User.findById(id);
-    if (!user) return sendError(res, "Invalid ID or password", 402);
-
-    if (!user.isVerified) {
-      return sendError(res, "Please verify your account first", 403);
+    // find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) return sendError(res, "Invalid ID or password", 401);
+    // compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
 
+    // generate JWT (use your generateToken helper for consistency)
     const token = generateToken(user);
 
-    return res
-      .status(200)
-      .json(successResponse("User logged in successfully", { user, token }));
+    res.json({
+      token,
+      user, // return full user object (frontend already expects user.username)
+    });
   } catch (error) {
-    return sendError(res, "Internal server error", 500);
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
+
 
 /**
  * Show user info
